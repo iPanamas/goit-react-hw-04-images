@@ -1,0 +1,18 @@
+.galleryItem {
+box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px;
+  border: 1px solid #A3D0C3;
+  width: 375px;
+  height: 225px;
+  margin-right: 15px;
+  margin-bottom: 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.galleryItem:hover {
+  scale: (1.2);
+}
+
+  .galleryItem:nth-child(4n) {
+    margin-right: 0;
+  }
