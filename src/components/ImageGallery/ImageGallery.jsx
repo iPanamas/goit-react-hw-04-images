@@ -10,7 +10,7 @@ const ImageGallery = ({ imageItems, onClick }) => {
           key={id}
           webformatURL={webformatURL}
           tags={tags}
-          onClick={() => onClick(largeImageURL)}
+          onClick={() => onClick({ largeImageURL, tags })}
         />
       ))}
     </ul>

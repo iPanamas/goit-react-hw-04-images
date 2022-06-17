@@ -1,4 +1,6 @@
-import React, { Component } from 'react';
+// import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
+
 // Components
 import Container from './Container/Container';
 import Searchbar from './Searchbar/Searchbar';
@@ -7,140 +9,117 @@ import Button from './Button/Button';
 import Modal from './Modal/Modal';
 import Loader from './Loader/Loader';
 import Title from './Title/Title';
+
 // Scroll
 import { animateScroll as Scroll } from 'react-scroll';
 
-// Toast
+// Toast notificatio  n
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // API
 import * as api from 'API/api';
 
-// Styles
-import s from './Modal/Modal.module.css';
+const Status = {
+  IDLE: 'idle',
+  PENDING: 'pending',
+  RESOLVED: 'resolved',
+  REJECTED: 'rejected',
+};
 
-export class App extends Component {
-  state = {
-    imageCount: 1,
-    category: '',
-    imageItems: [],
-    error: null,
-    status: 'idle',
-    showModal: false,
-    fullSizeImage: '',
-  };
+export const App = () => {
+  const [page, setPage] = useState(1);
+  const [categoryName, setCategory] = useState('');
+  const [imageItems, setImageItems] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [showModal, setShowModal] = useState(false);
+  const [fullSizeImage, setFullSizeImage] = useState('');
+  const [tags, setTags] = useState('');
 
-  async componentDidUpdate(prevProps, prevState) {
-    const { imageCount, category } = this.state;
-
-    const prevCount = prevState.imageCount;
-    const prevCategory = prevState.category;
-    const newCategory = category;
-
-    if (prevCategory !== newCategory) {
-      this.setState({
-        status: 'pending',
-        imageItems: [],
-        imageCount: 1,
-      });
-      this.fetchData();
+  useEffect(() => {
+    if (!categoryName) {
+      return;
     }
 
-    if (imageCount !== prevCount && imageCount !== 1) {
-      this.fetchData();
-    }
-  }
+    setStatus(Status.PENDING);
 
-  fetchData = async () => {
-    const { category, imageCount } = this.state;
+    const fetchData = async () => {
+      try {
+        const pictures = await api.getPictures(categoryName, page);
 
-    try {
-      const pictures = await api.getPictures(category, imageCount);
+        if (pictures.length === 0) {
+          setStatus(Status.IDLE);
+          return toast.warning(`${categoryName} not found`);
+        }
 
-      if (pictures.length === 0) {
-        this.setState({ status: 'idle' });
-        return toast.warning(`${category} not found`);
+        setImageItems(prevItems => [...prevItems, ...pictures]);
+        setStatus(Status.RESOLVED);
+        scrollToBottom();
+
+        if (page === 1) {
+          return toast.success(`Enjoy`);
+        }
+      } catch (error) {
+        setStatus(Status.REJECTED);
+        return toast.error(
+          `Whoops something went wrong, please try again later`
+        );
       }
+    };
+    fetchData();
+  }, [page, categoryName]);
 
-      this.setState(prevState => ({
-        imageItems: [...prevState.imageItems, ...pictures],
-        status: 'resolved',
-      }));
+  const imageCategory = searchQuery => {
+    if (searchQuery !== categoryName) {
+      setCategory(searchQuery);
+      setImageItems([]);
+      setPage(1);
+    }
 
-      Scroll.scrollToBottom();
-
-      if (imageCount === 1) {
-        return toast.success(`Enjoy`);
-      }
-    } catch (error) {
-      this.setState({ error, status: 'rejected' });
-      return toast.error(`Whoops something went wrong, please try again later`);
-    } finally {
+    if (searchQuery === categoryName) {
+      return toast.warning(`You already here "${categoryName}"`);
     }
   };
 
-  imageCategory = category => {
-    if (this.state.category !== category) {
-      this.setState({
-        category: category,
-        imageCount: 1,
-      });
-    }
-    if (this.state.category === category) {
-      return toast.warning(`You already here "${category}"`);
-    }
+  const nextPage = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  nextPage = () => {
-    this.setState(prevState => ({
-      imageCount: prevState.imageCount + 1,
-    }));
+  const toggleModal = () => {
+    setShowModal(!showModal);
   };
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
+  const openFullPicture = event => {
+    toggleModal();
+    setFullSizeImage(event.largeImageURL);
+    setTags(event.tags);
   };
 
-  openFullPicture = event => {
-    this.toggleModal();
-    this.setState({ fullSizeImage: event });
-  };
-
-  scrollToBottom = () => {
+  const scrollToBottom = () => {
     Scroll.scrollToBottom();
   };
 
-  render() {
-    const { imageCategory, toggleModal, nextPage, openFullPicture } = this;
-    const { imageItems, showModal, fullSizeImage, status } = this.state;
+  return (
+    <>
+      <Searchbar onSubmit={imageCategory} />
+      <Container>
+        {status === Status.IDLE && <Title />}
+        {status === Status.REJECTED && <Title />}
+        {status === Status.PENDING && <Loader />}
 
-    return (
-      <>
-        <Searchbar onSubmit={imageCategory} />
-        <Container>
-          {status === 'idle' && <Title />}
-          {status === 'rejected' && <Title />}
-          {status === 'pending' && <Loader />}
+        <ImageGallery imageItems={imageItems} onClick={openFullPicture} />
 
-          <ImageGallery imageItems={imageItems} onClick={openFullPicture} />
+        {showModal && (
+          <Modal
+            onClose={toggleModal}
+            fullSizeImage={fullSizeImage}
+            tags={tags}
+          ></Modal>
+        )}
 
-          {showModal && (
-            <Modal onClose={toggleModal}>
-              <img
-                className={s.modalPicture}
-                src={fullSizeImage}
-                alt={fullSizeImage.tags}
-              />
-            </Modal>
-          )}
-
-          {imageItems.length > 0 && <Button nextPage={nextPage} />}
-        </Container>
-        <ToastContainer autoClose={3000} />
-      </>
-    );
-  }
-}
+        {imageItems.length > 0 && <Button nextPage={nextPage} />}
+      </Container>
+      <ToastContainer autoClose={3000} />
+    </>
+  );
+};
